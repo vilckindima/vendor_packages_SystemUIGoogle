@@ -37,6 +37,8 @@ android_library {
     ],
     defaults: ["SystemUIGoogle-srcs-defaults"],
     static_libs: [
+        // Full SDK includes the generated hidden IHealthInterface.
+        "org.lineageos.platform.internal",
         "SystemUI-core",
         "SystemUIGoogle-res",
         "androidx.compose.runtime_runtime",

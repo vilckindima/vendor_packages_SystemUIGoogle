@@ -24,6 +24,7 @@ import com.android.systemui.statusbar.policy.ConfigurationController;
 
 import com.google.android.systemui.power.EnhancedEstimatesGoogleImpl;
 import com.google.android.systemui.power.PowerNotificationWarningsGoogleImpl;
+import com.google.android.systemui.power.batteryhealth.BatteryHealthStartable;
 
 import dagger.Binds;
 import dagger.Module;
@@ -38,6 +39,11 @@ import dagger.multibindings.IntoSet;
         }
 )
 public interface PowerModuleGoogle {
+    @Binds
+    @IntoMap
+    @ClassKey(BatteryHealthStartable.class)
+    CoreStartable bindBatteryHealthStartable(BatteryHealthStartable impl);
+
     /** Starts PowerUI. */
     @Binds
     @IntoMap

@@ -5,6 +5,9 @@
     coreApp="true"
     android:sharedUserId="android.uid.systemui">
 
+    <!-- Required by the Lineage Health charging-owner Binder service. -->
+    <uses-permission android:name="android.permission.DEVICE_POWER" />
+
     <!-- Smartspace -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>
     <protected-broadcast android:name="com.google.android.systemui.smartspace.CLICK_EVENT"/>
@@ -20,5 +23,9 @@
     <application
         android:appComponentFactory="com.google.android.systemui.SystemUIGoogleAppComponentFactory"
         tools:replace="android:appComponentFactory">
+        <!-- Access is checked against the calling UID inside each Binder operation. -->
+        <service
+            android:name="com.google.android.systemui.power.batteryhealth.HealthService"
+            android:exported="true" />
     </application>
 </manifest>
