@@ -9,7 +9,6 @@ import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.util.Log;
@@ -19,7 +18,6 @@ import java.util.Set;
 /** Google battery settings bridge for the caimito vendor stack; not a stock SystemUI port. */
 public final class HealthService extends Service implements HealthServiceBinder.Backend {
     private static final String TAG = "EvoBatteryHealth";
-    private static final String PULSAR_OPT_OUT = "persist.vendor.pulsar.opt_out";
     private static final String PULSAR_SETTING = "pulsar_sysprop_enabled";
     private static final Set<String> CALLERS = Set.of(
             "com.android.settings", "com.android.systemui",
@@ -71,29 +69,19 @@ public final class HealthService extends Service implements HealthServiceBinder.
     }
 
     @Override
-    // Compatibility preference only: this bridge does not implement Pulsar charge control.
+    // Preference only: no Pulsar charge control exists on this ROM. A vendor property
+    // would need platform_app to set vendor props, which Treble policy forbids.
     public boolean isPulsarEnabled() {
-        return "0".equals(SystemProperties.get(PULSAR_OPT_OUT, "0"));
+        return Settings.Secure.getIntForUser(getContentResolver(), PULSAR_SETTING, 1,
+                ActivityManager.getCurrentUser()) != 0;
     }
 
     @Override
     public synchronized void setPulsarEnabled(boolean enabled) {
-        String value = enabled ? "0" : "1";
-        // Preserve the requested preference only; a successful write is not evidence
-        // that charging protection is active. Do not mirror a denied write.
-        try {
-            SystemProperties.set(PULSAR_OPT_OUT, value);
-            if (!value.equals(SystemProperties.get(PULSAR_OPT_OUT))) {
-                throw new IllegalStateException("Pulsar property write did not persist");
-            }
-        } catch (RuntimeException e) {
-            Log.e(TAG, "Cannot change Pulsar property", e);
-            // Use an exception type that Parcel can marshal back to the client.
-            throw new IllegalStateException("Cannot change Pulsar property", e);
-        }
         if (!Settings.Secure.putIntForUser(getContentResolver(), PULSAR_SETTING,
                 enabled ? 1 : 0, ActivityManager.getCurrentUser())) {
-            Log.w(TAG, "Pulsar property changed but secure setting mirror failed");
+            // Use an exception type that Parcel can marshal back to the client.
+            throw new IllegalStateException("Cannot save Pulsar preference");
         }
         Log.i(TAG, "Pulsar preference saved: " + enabled
                 + "; charging-control implementation is not included");
