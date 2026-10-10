@@ -72,18 +72,34 @@ public final class HealthService extends Service implements HealthServiceBinder.
     // Preference only: no Pulsar charge control exists on this ROM. A vendor property
     // would need platform_app to set vendor props, which Treble policy forbids.
     public boolean isPulsarEnabled() {
-        return Settings.Secure.getIntForUser(getContentResolver(), PULSAR_SETTING, 1,
-                ActivityManager.getCurrentUser()) != 0;
+        // No property means no enable request; do not report a UI-only preference as active.
+        return "0".equals(android.os.SystemProperties.get(
+                "persist.vendor.pulsar.opt_out", "1"));
     }
 
     @Override
     public synchronized void setPulsarEnabled(boolean enabled) {
-        if (!Settings.Secure.putIntForUser(getContentResolver(), PULSAR_SETTING,
-                enabled ? 1 : 0, ActivityManager.getCurrentUser())) {
+        String value = enabled ? "0" : "1";
+        final String property = "persist.vendor.pulsar.opt_out";
+        // Stock init forwards this property to battery/aacp_opt_out. Write it even
+        // when unchanged so a user request can re-trigger the existing init action.
+        // Persist the UI mirror only after the property write and readback succeed.
+        try {
+            android.os.SystemProperties.set(property, value);
+            if (!value.equals(android.os.SystemProperties.get(property))) {
+                throw new IllegalStateException("Pulsar property readback mismatch");
+            }
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Cannot change Pulsar property", e);
             // Use an exception type that Parcel can marshal back to the client.
-            throw new IllegalStateException("Cannot save Pulsar preference");
+            throw new IllegalStateException("Cannot change Pulsar property", e);
         }
-        Log.i(TAG, "Pulsar preference saved: " + enabled
-                + "; charging-control implementation is not included");
+        if (!android.provider.Settings.Secure.putIntForUser(getContentResolver(),
+                "pulsar_sysprop_enabled", enabled ? 1 : 0,
+                android.app.ActivityManager.getCurrentUser())) {
+            Log.w(TAG, "Pulsar property changed but secure setting mirror failed");
+        }
+        Log.i(TAG, "Pulsar request persisted: " + property + "=" + value
+                + "; effective AACP state must be checked through the driver");
     }
 }
